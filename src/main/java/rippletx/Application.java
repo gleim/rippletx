@@ -8,47 +8,70 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.CanReadFileFilter;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 
+import org.neo4j.cypher.javacompat.ExecutionEngine;
+import org.neo4j.graphdb.factory.GraphDatabaseFactory;
+import org.neo4j.graphdb.index.UniqueFactory;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.DynamicLabel;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.neo4j.config.EnableNeo4jRepositories;
-import org.springframework.data.neo4j.config.Neo4jConfiguration;
-import org.springframework.data.neo4j.core.GraphDatabase;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.SpringApplication;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
-@Configuration
-@EnableNeo4jRepositories
-public class Application extends Neo4jConfiguration implements CommandLineRunner {
+public class Application {
 
     private static final String DB_PATH = "db/rippletxneo4j.db";
 
-    @Bean
-    EmbeddedGraphDatabase graphDatabaseService() {
-        return new EmbeddedGraphDatabase( DB_PATH );
+    private enum AccountRelationshipTypes implements RelationshipType
+    {
+        TRANSACTS_WITH
     }
 
-    @Autowired
-    PersonRepository personRepository;
+    private static GraphDatabaseService graphDb;
 
-    @Autowired
-    GraphDatabase graphDatabase;
+    public static void run(String... args) throws Exception {
 
-    public void run(String... args) throws Exception {
+        // create property graph database
+        graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH );
 
-        Transaction tx = graphDatabase.beginTx();
-        try {
+        // register shutdown hook to prevent database corruption upon interruption
+        registerShutdownHook( graphDb );
 
+        try ( Transaction tx = graphDb.beginTx() ) {
+            // add uniqueness constraint
+            graphDb.schema()
+                            .constraintFor( DynamicLabel.label("Account"))
+                            .assertPropertyIsUnique("address")
+                            .create();
+
+            // commit schema constraint
+            tx.success();
+        }
+
+        try ( Transaction tx = graphDb.beginTx() ) {
+
+            UniqueFactory<Node> accountFactory = new UniqueFactory.UniqueNodeFactory( graphDb, "accounts")
+            {
+                @Override
+                protected void initialize( Node created, Map<String, Object> properties )
+                {
+                    created.addLabel( DynamicLabel.label( "Account" ) );
+                    created.setProperty( "address", properties.get( "address" ) );
+                }                  
+            };
+            int records = 0;
+    
             Collection<File> files = getFolderContents("./json");
 
             for (Iterator<File> iter = files.iterator(); iter.hasNext();)
@@ -75,8 +98,6 @@ public class Application extends Neo4jConfiguration implements CommandLineRunner
                                 JSONObject internal_tx = (JSONObject)txs.get(i);
                                 String[] tx_names = JSONObject.getNames(internal_tx);
 
-                                System.out.println("**********************************************");
-
                                 String input_address = "", output_address = "";
 
                                 for (String tx_name : tx_names) {
@@ -95,10 +116,18 @@ public class Application extends Neo4jConfiguration implements CommandLineRunner
                                 }
 
                                 if (input_address != null && !input_address.isEmpty() && output_address != null && !output_address.isEmpty()) {
-                                    Person in  = new Person(input_address);
-                                    Person out = new Person(output_address);
-                                    in.transactsWith(out);
-                                    personRepository.save(in);
+
+                                    // create property graph representation of entity associated with transaction input
+                                    Node inputNode = accountFactory.getOrCreate( "address", input_address );
+
+                                    // create property graph representation of entity associated with transaction output
+                                    Node outputNode = accountFactory.getOrCreate( "address", output_address );
+                         
+                                    // create property graph representation of transaction relationship
+                                    Relationship relationship = inputNode.createRelationshipTo( outputNode, AccountRelationshipTypes.TRANSACTS_WITH );
+
+                                    // create details of transaction relationship
+                                    //relationship.setProperty( "timestamp", timestamp );
 
                                     System.out.println(input_address + " transacts with " + output_address);
                                 }
@@ -107,10 +136,9 @@ public class Application extends Neo4jConfiguration implements CommandLineRunner
                     }
                 }
             }
+            // commit the transactions to the database
             tx.success();
-        } finally {
-            tx.finish();
-        }
+        } 
     }
 
     /**
@@ -132,7 +160,21 @@ public class Application extends Neo4jConfiguration implements CommandLineRunner
     public static void main(String[] args) throws Exception {
         org.neo4j.kernel.impl.util.FileUtils.deleteRecursively(new File( DB_PATH ));
 
-        SpringApplication.run(Application.class, args);
+        Application.run(args);
     }
 
+    private static void registerShutdownHook( final GraphDatabaseService graphDb )
+    {
+        // Registers a shutdown hook for the Neo4j instance so that it
+        // shuts down nicely when the VM exits (even if you "Ctrl-C" the
+        // running application).
+        Runtime.getRuntime().addShutdownHook( new Thread()
+        {
+            @Override
+            public void run()
+            {
+                graphDb.shutdown();
+            }
+        } );
+    }
 }
