@@ -13,7 +13,7 @@ You'll use Neo4j's NoSQL graph-based data store to build an embedded Neo4j serve
 
 - Java 7
 - Neo4J Community Edition 2.0.1
-- Gradle 1.8+ or Maven 3.0+
+- Maven 3.0+
 - one or more transaction files in json/ (sample transaction files are provided to start)
 
 == Build an executable JAR
