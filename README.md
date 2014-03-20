@@ -21,38 +21,24 @@ You'll use Neo4j's NoSQL graph-based data store to build an embedded Neo4j serve
 You can build a single executable JAR file that contains all the necessary dependencies, classes, and resources. This makes it easy to ship, version, and deploy the service as an application throughout the development lifecycle, across different environments, and so forth.
 
 
-./gradlew build
+mvn clean package
 
 
 Then you can run the JAR file:
-
-java -jar build/libs/rippletx-0.1.0.jar
-
-
-If you are using Maven, you can run the application using mvn spring-boot:run. Or you can build the JAR file with mvn clean package and run the JAR by typing:
 
 java -jar target/rippletx-0.1.0.jar
 
  The procedure above will create a runnable JAR. You can also opt to build a classic WAR file instead.
 
+
 == Run the service
 
-If you are using Gradle, you can run your service at the command line this way:
-
-./gradlew clean build && java -jar build/libs/rippletx-0.1.0.jar
-
-
- If you are using Maven, you can run your service by typing: 
+You can run your service by typing: 
 
  mvn clean package && java -jar target/rippletx-0.1.0.jar.
 
 
-You can alternatively run the app directly from Gradle like this:
-
-./gradlew bootRun
-
-
-With mvn, you can run: 
+Or alternatively:
 
 mvn spring-boot:run
 
