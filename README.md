@@ -1,6 +1,6 @@
 ---
-tags: [ripple, property graph, spring-data, graph databases, neo4j]
-projects: [spring-data-neo4j, btcviz]
+tags: [ripple, property graph, graph databases, neo4j]
+projects: [btcviz]
 ---
 
 This repo translates Ripple transaction data from JSON format into a simple Neo4j graph database (for data visualization and analysis).
@@ -45,5 +45,6 @@ mvn spring-boot:run
 
 == Summary
 
-Congratulations! You just set up an embedded Neo4j server & stored some simple related entities from Ripple transaction history.  Now you can visualize the data in your web browser &/or run more advanced queries against the relations.
+Congratulations! You just used an embedded Neo4j server to store some simple related entities from the Ripple transaction history.  Now you can visualize the data in your web browser &/or run more advanced queries against the relations.
 
+An example of this approach applied to BTC may be found at http://metabitco.in
